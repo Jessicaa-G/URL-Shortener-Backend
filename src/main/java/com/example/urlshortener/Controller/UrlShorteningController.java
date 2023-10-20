@@ -8,9 +8,7 @@ import com.example.urlshortener.service.UrlService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
 public class UrlShorteningController {
@@ -32,5 +30,11 @@ public class UrlShorteningController {
         UrlErrorResponse error = new UrlErrorResponse("404", "Error occurred when shortening url");
         return new ResponseEntity<UrlErrorResponse>(error, HttpStatus.OK);
 
+    }
+
+    @DeleteMapping("shortenurl")
+    public ResponseEntity<?> deleteUrl(@RequestParam String url) {
+        urlService.deleteUrlById(url);
+        return new ResponseEntity<UrlResponse>(HttpStatus.OK);
     }
 }
