@@ -25,14 +25,16 @@ public class UrlService {
     @Value("${URL_TABLE_ID}")
     private String tableId;
 
-    private final String COLUMN_FAMILY_URL="url_details";
+    private final String COLUMN_FAMILY_URL = "url_details";
 
-    private final String COLUMN_FAMILY_TIME="time_details";
+    private final String COLUMN_FAMILY_TIME = "time_details";
 
-    private final String COLUMN_FAMILY_CLICK="click_details";
+    private final String COLUMN_FAMILY_CLICK = "click_details";
 
-    public UrlService(@Value("${PROJECT_ID}") final String projectId, @Value("${INSTANCE_ID}") final String instanceId) throws IOException {
-        BigtableDataSettings settings = BigtableDataSettings.newBuilder().setProjectId(projectId).setInstanceId(instanceId).build();
+    public UrlService(@Value("${PROJECT_ID}") final String projectId, @Value("${INSTANCE_ID}") final String instanceId)
+            throws IOException {
+        BigtableDataSettings settings = BigtableDataSettings.newBuilder().setProjectId(projectId)
+                .setInstanceId(instanceId).build();
         this.dataClient = BigtableDataClient.create(settings);
     }
 
@@ -49,13 +51,15 @@ public class UrlService {
             RowMutation rowMutation = RowMutation.create(tableId, rowkey)
                     .deleteCells(COLUMN_FAMILY_URL, "longUrl")
                     .setCell(COLUMN_FAMILY_URL, "longUrl", shortenedUrl.getLongUrl())
-//                      TODO: short url is already in rowkey
-//                    .deleteCells(COLUMN_FAMILY_URL, "shortUrl")
-//                    .setCell(COLUMN_FAMILY_URL, "shortUrl", shortenedUrl.getShortUrl())
+                    // TODO: short url is already in rowkey
+                    // .deleteCells(COLUMN_FAMILY_URL, "shortUrl")
+                    // .setCell(COLUMN_FAMILY_URL, "shortUrl", shortenedUrl.getShortUrl())
                     .deleteCells(COLUMN_FAMILY_TIME, "createDate")
-                    .setCell(COLUMN_FAMILY_TIME, "createDate", shortenedUrl.getCreateDate().toEpochSecond(ZoneOffset.UTC))
+                    .setCell(COLUMN_FAMILY_TIME, "createDate",
+                            shortenedUrl.getCreateDate().toEpochSecond(ZoneOffset.UTC))
                     .deleteCells(COLUMN_FAMILY_TIME, "expireDate")
-                    .setCell(COLUMN_FAMILY_TIME, "expireDate", shortenedUrl.getExpireDate().toEpochSecond(ZoneOffset.UTC));
+                    .setCell(COLUMN_FAMILY_TIME, "expireDate",
+                            shortenedUrl.getExpireDate().toEpochSecond(ZoneOffset.UTC));
 
             dataClient.mutateRow(rowMutation);
             getLongUrlById(shortenedUrl.getShortUrl());
