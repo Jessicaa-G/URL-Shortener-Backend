@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.*;
 import com.google.common.hash.Hashing;
 
 import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 import java.nio.charset.StandardCharsets;
@@ -49,9 +50,22 @@ public class UserController {
     }
 
     @PostMapping("login")
-    public ResponseEntity<?> loginUser(@RequestBody User user, HttpServletResponse response) {
-        User storedUser = userService.getUserByEmail(user.getEmail()); // This is a hypothetical method
-        System.out.println(storedUser);
+    public ResponseEntity<?> loginUser(@RequestBody User user, HttpServletRequest request,
+            HttpServletResponse response) {
+        Cookie[] cookies = request.getCookies();
+        if (cookies != null) {
+            for (Cookie cookie : cookies) {
+                if ("auth_token".equals(cookie.getName())) {
+                    try {
+                        jwtService.verifyToken(cookie.getValue());
+                        return new ResponseEntity<>("User already logged in", HttpStatus.OK);
+                    } catch (Exception e) {
+                        // Token is invalid or expired, proceed with login logic
+                    }
+                }
+            }
+        }
+        User storedUser = userService.getUserByEmail(user.getEmail());
         if (storedUser != null && storedUser.getPassword()
                 .equals(Hashing.sha256().hashString(user.getPassword(), StandardCharsets.UTF_8).toString())) {
             String token = jwtService.generateToken(user);
