@@ -22,7 +22,6 @@ import java.util.UUID;
 public class UserService {
 
     private BigtableDataClient dataClient;
-    private List<String> invalidatedTokens = new ArrayList<>();
     @Value("${USER_TABLE_ID}")
     private String tableId;
 
@@ -111,13 +110,5 @@ public class UserService {
             return getUserById(userId);
         }
         return null;
-    }
-
-    public void invalidateToken(String token) {
-        invalidatedTokens.add(token);
-    }
-
-    public boolean isTokenInvalidated(String token) {
-        return invalidatedTokens.contains(token);
     }
 }

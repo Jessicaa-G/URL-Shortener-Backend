@@ -11,6 +11,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import com.google.common.hash.Hashing;
 
+import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletResponse;
+
 import java.nio.charset.StandardCharsets;
 
 @RestController
@@ -46,30 +49,29 @@ public class UserController {
     }
 
     @PostMapping("login")
-    public ResponseEntity<?> loginUser(@RequestBody User user) {
+    public ResponseEntity<?> loginUser(@RequestBody User user, HttpServletResponse response) {
         User storedUser = userService.getUserByEmail(user.getEmail()); // This is a hypothetical method
         System.out.println(storedUser);
         if (storedUser != null && storedUser.getPassword()
                 .equals(Hashing.sha256().hashString(user.getPassword(), StandardCharsets.UTF_8).toString())) {
             String token = jwtService.generateToken(user);
-            return new ResponseEntity<>(token, HttpStatus.OK);
+            Cookie authCookie = new Cookie("auth_token", token);
+            authCookie.setHttpOnly(true);
+            authCookie.setPath("/");
+            response.addCookie(authCookie);
+            return new ResponseEntity<>("Login successful", HttpStatus.OK);
         }
         UrlErrorResponse error = new UrlErrorResponse("401", "Invalid email or password");
         return new ResponseEntity<>(error, HttpStatus.UNAUTHORIZED);
     }
 
-    // V1 if we want to invalidate token
-    // @PutMapping("logout")
-    // public ResponseEntity<?> logoutUser(@RequestHeader("Authorization") String
-    // token) {
-    // userService.invalidateToken(token);
-    // return new ResponseEntity<>("Token invalidated. Logout successful.",
-    // HttpStatus.OK);
-    // }
-
-    // V2 simple logout
     @PutMapping("logout")
-    public ResponseEntity<?> logoutUser() {
+    public ResponseEntity<?> logoutUser(HttpServletResponse response) {
+        Cookie authCookie = new Cookie("auth_token", null);
+        authCookie.setMaxAge(0);
+        authCookie.setHttpOnly(true);
+        authCookie.setPath("/");
+        response.addCookie(authCookie);
         return new ResponseEntity<>("Logged out successfully", HttpStatus.OK);
     }
 }
