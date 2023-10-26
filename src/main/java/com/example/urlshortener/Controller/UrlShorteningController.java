@@ -10,6 +10,9 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.HashMap;
+import java.util.Map;
+
 @RestController
 public class UrlShorteningController {
     @Autowired
@@ -36,5 +39,18 @@ public class UrlShorteningController {
     public ResponseEntity<?> deleteUrl(@RequestParam String url) {
         urlService.deleteUrlById(url);
         return new ResponseEntity<UrlResponse>(HttpStatus.OK);
+    }
+
+    @GetMapping("redirect/{urlParam}")
+    public ResponseEntity<?> redirect(@PathVariable String urlParam) {
+        String longUrl = urlService.getLongUrlById(urlParam);
+        if (longUrl != null) {
+            Map<String, String> response = new HashMap<>();
+            response.put("longUrl", longUrl);
+            return ResponseEntity.ok(response);
+        }
+
+        UrlErrorResponse error = new UrlErrorResponse("404", "Error occurred when shortening url");
+        return new ResponseEntity<UrlErrorResponse>(error, HttpStatus.OK);
     }
 }

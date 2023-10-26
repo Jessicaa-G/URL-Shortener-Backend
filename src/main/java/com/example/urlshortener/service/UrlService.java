@@ -16,6 +16,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import java.util.List;
 
 @Service
 public class UrlService {
@@ -77,13 +78,33 @@ public class UrlService {
         return null;
     }
 
-    private void getLongUrlById(String shortUrl) {
-        Row row = dataClient.readRow(tableId, shortUrl);
-        System.out.println("Row: " + row.getKey().toStringUtf8());
-        for (RowCell cell : row.getCells()) {
-            System.out.printf(
-                    "Family: %s    Qualifier: %s    Value: %s%n",
-                    cell.getFamily(), cell.getQualifier().toStringUtf8(), cell.getValue().toStringUtf8());
+    public String getLongUrlById(String shortUrl) {
+        try {
+            Row row = dataClient.readRow(tableId, shortUrl);
+
+            if (row != null) {
+                System.out.println("Row: " + row.getKey().toStringUtf8());
+
+                for (RowCell cell : row.getCells()) {
+                    System.out.printf(
+                            "Family: %s    Qualifier: %s    Value: %s%n",
+                            cell.getFamily(), cell.getQualifier().toStringUtf8(), cell.getValue().toStringUtf8());
+                }
+
+                List<RowCell> longUrlCells = row.getCells("url_details", "longUrl");
+
+                if (!longUrlCells.isEmpty()) {
+                    return longUrlCells.get(0).getValue().toStringUtf8();
+                } else {
+                    // Handle the case where longUrl is not found in the row
+                    throw new RuntimeException("Long URL not found for " + shortUrl);
+                }
+            } else {
+                // Handle the case where the row with the given shortUrl is not found
+                throw new RuntimeException("Row not found for " + shortUrl);
+            }
+        } catch (Exception e) {
+            throw new RuntimeException("Error occurred while retrieving the Long URL");
         }
     }
 
