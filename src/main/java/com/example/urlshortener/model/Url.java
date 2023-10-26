@@ -1,40 +1,32 @@
 package com.example.urlshortener.model;
 
 import javax.persistence.Entity;
-import javax.persistence.GeneratedValue;
-import javax.persistence.Id;
 import javax.persistence.Lob;
 import java.time.LocalDateTime;
 
 @Entity
 public class Url {
 
-    @Id
-    @GeneratedValue
-    private long id;
     @Lob
     private String longUrl;
     private String shortUrl;
     private LocalDateTime createDate;
     private LocalDateTime expireDate;
+    private int clicksNAM = 0;
+    private int clicksEMEA = 0;
+    private int clicksAPAC = 0;
 
-    public Url(long id, String longUrl, String shortUrl, LocalDateTime createDate, LocalDateTime expireDate) {
-        this.id = id;
+    public Url(String longUrl, String shortUrl, LocalDateTime createDate, LocalDateTime expireDate, int clicksNAM, int clicksEMEA, int clicksAPAC) {
         this.longUrl = longUrl;
         this.shortUrl = shortUrl;
         this.createDate = createDate;
         this.expireDate = expireDate;
+        this.clicksNAM = clicksNAM;
+        this.clicksEMEA = clicksEMEA;
+        this.clicksAPAC = clicksAPAC;
     }
 
     public Url() {
-    }
-
-    public long getId() {
-        return id;
-    }
-
-    public void setId(long id) {
-        this.id = id;
     }
 
     public String getLongUrl() {
@@ -69,14 +61,40 @@ public class Url {
         this.expireDate = expireDate;
     }
 
+    public int getClicksNAM() {
+        return clicksNAM;
+    }
+
+    public void setClicksNAM(int clicksNAM) {
+        this.clicksNAM = clicksNAM;
+    }
+
+    public int getClicksEMEA() {
+        return clicksEMEA;
+    }
+
+    public void setClicksEMEA(int clicksEMEA) {
+        this.clicksEMEA = clicksEMEA;
+    }
+
+    public int getClicksAPAC() {
+        return clicksAPAC;
+    }
+
+    public void setClicksAPAC(int clicksAPAC) {
+        this.clicksAPAC = clicksAPAC;
+    }
+
     @Override
     public String toString() {
         return "Url{" +
-                "id=" + id +
-                ", longUrl='" + longUrl + '\'' +
+                "longUrl='" + longUrl + '\'' +
                 ", shortUrl='" + shortUrl + '\'' +
                 ", createDate=" + createDate +
                 ", expireDate=" + expireDate +
+                ", clicksNAM=" + clicksNAM +
+                ", clicksEMEA=" + clicksEMEA +
+                ", clicksAPAC=" + clicksAPAC +
                 '}';
     }
 }

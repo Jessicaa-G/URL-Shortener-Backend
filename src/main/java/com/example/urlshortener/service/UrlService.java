@@ -59,7 +59,16 @@ public class UrlService {
                             shortenedUrl.getCreateDate().toEpochSecond(ZoneOffset.UTC))
                     .deleteCells(COLUMN_FAMILY_TIME, "expireDate")
                     .setCell(COLUMN_FAMILY_TIME, "expireDate",
-                            shortenedUrl.getExpireDate().toEpochSecond(ZoneOffset.UTC));
+                            shortenedUrl.getExpireDate().toEpochSecond(ZoneOffset.UTC))
+                    .deleteCells(COLUMN_FAMILY_CLICK, "clicksNAM")
+                    .setCell(COLUMN_FAMILY_CLICK, "clicksNAM",
+                            shortenedUrl.getClicksNAM())
+                    .deleteCells(COLUMN_FAMILY_CLICK, "clicksEMEA")
+                    .setCell(COLUMN_FAMILY_CLICK, "clicksEMEA",
+                            shortenedUrl.getClicksEMEA())
+                    .deleteCells(COLUMN_FAMILY_CLICK, "clicksAPAC")
+                    .setCell(COLUMN_FAMILY_CLICK, "clicksAPAC",
+                            shortenedUrl.getClicksAPAC());
 
             dataClient.mutateRow(rowMutation);
             getLongUrlById(shortenedUrl.getShortUrl());
