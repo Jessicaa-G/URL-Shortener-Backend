@@ -3,36 +3,29 @@ package com.example.urlshortener.service;
 import com.example.urlshortener.model.User;
 import com.google.api.gax.rpc.ServerStream;
 import com.google.cloud.bigtable.data.v2.BigtableDataClient;
-import com.google.cloud.bigtable.data.v2.BigtableDataSettings;
 import com.google.cloud.bigtable.data.v2.models.*;
 import com.google.common.hash.Hashing;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
-import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.UUID;
 
 @Service
 public class UserService {
 
+    @Autowired
     private BigtableDataClient dataClient;
     @Value("${USER_TABLE_ID}")
     private String tableId;
 
     private final String COLUMN_FAMILY_USER = "user_details";
 
-    public UserService(@Value("${PROJECT_ID}") final String projectId, @Value("${INSTANCE_ID}") final String instanceId)
-            throws IOException {
-        BigtableDataSettings settings = BigtableDataSettings.newBuilder().setProjectId(projectId)
-                .setInstanceId(instanceId).build();
-        this.dataClient = BigtableDataClient.create(settings);
-    }
+    public UserService() { }
 
     public User createUser(User user) {
         String rowkey = new User().getId().toString();

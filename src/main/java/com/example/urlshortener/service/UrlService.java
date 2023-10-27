@@ -3,17 +3,16 @@ package com.example.urlshortener.service;
 import com.example.urlshortener.model.Url;
 import com.example.urlshortener.model.UrlDto;
 import com.google.cloud.bigtable.data.v2.BigtableDataClient;
-import com.google.cloud.bigtable.data.v2.BigtableDataSettings;
 import com.google.cloud.bigtable.data.v2.models.ReadModifyWriteRow;
 import com.google.cloud.bigtable.data.v2.models.Row;
 import com.google.cloud.bigtable.data.v2.models.RowCell;
 import com.google.cloud.bigtable.data.v2.models.RowMutation;
 import com.google.common.hash.Hashing;
 import io.micrometer.common.util.StringUtils;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
-import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
@@ -25,6 +24,7 @@ import java.util.Map;
 @Service
 public class UrlService {
 
+    @Autowired
     private BigtableDataClient dataClient;
 
     @Value("${URL_TABLE_ID}")
@@ -36,12 +36,7 @@ public class UrlService {
 
     private final String COLUMN_FAMILY_CLICK = "click_details";
 
-    public UrlService(@Value("${PROJECT_ID}") final String projectId, @Value("${INSTANCE_ID}") final String instanceId)
-            throws IOException {
-        BigtableDataSettings settings = BigtableDataSettings.newBuilder().setProjectId(projectId)
-                .setInstanceId(instanceId).build();
-        this.dataClient = BigtableDataClient.create(settings);
-    }
+    public UrlService() { }
 
     public Url generateShortUrl(UrlDto url) {
         if (StringUtils.isNotEmpty(url.getUrl())) {
