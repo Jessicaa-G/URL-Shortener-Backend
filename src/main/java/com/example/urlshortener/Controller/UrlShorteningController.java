@@ -43,11 +43,22 @@ public class UrlShorteningController {
 
     @GetMapping("redirect/{urlParam}")
     public ResponseEntity<?> redirect(@PathVariable String urlParam) {
-        String longUrl = urlService.getLongUrlById(urlParam);
+        String longUrl = urlService.redirect(urlParam);
         if (longUrl != null) {
             Map<String, String> response = new HashMap<>();
             response.put("longUrl", longUrl);
             return ResponseEntity.ok(response);
+        }
+
+        UrlErrorResponse error = new UrlErrorResponse("404", "Error occurred when shortening url");
+        return new ResponseEntity<UrlErrorResponse>(error, HttpStatus.OK);
+    }
+
+    @GetMapping("stats/{urlParam}")
+    public ResponseEntity<?> getStats(@PathVariable String urlParam) {
+        Map<String, Long> clicks = urlService.getStats(urlParam);
+        if (clicks != null) {
+            return ResponseEntity.ok(clicks);
         }
 
         UrlErrorResponse error = new UrlErrorResponse("404", "Error occurred when shortening url");

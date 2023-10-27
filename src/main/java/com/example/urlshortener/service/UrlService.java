@@ -4,6 +4,7 @@ import com.example.urlshortener.model.Url;
 import com.example.urlshortener.model.UrlDto;
 import com.google.cloud.bigtable.data.v2.BigtableDataClient;
 import com.google.cloud.bigtable.data.v2.BigtableDataSettings;
+import com.google.cloud.bigtable.data.v2.models.ReadModifyWriteRow;
 import com.google.cloud.bigtable.data.v2.models.Row;
 import com.google.cloud.bigtable.data.v2.models.RowCell;
 import com.google.cloud.bigtable.data.v2.models.RowMutation;
@@ -13,10 +14,13 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @Service
 public class UrlService {
@@ -72,13 +76,13 @@ public class UrlService {
                             shortenedUrl.getClicksAPAC());
 
             dataClient.mutateRow(rowMutation);
-            getLongUrlById(shortenedUrl.getShortUrl());
+            getRowByKey(shortenedUrl.getShortUrl());
             return shortenedUrl;
         }
         return null;
     }
 
-    public String getLongUrlById(String shortUrl) {
+    private Row getRowByKey(String shortUrl) {
         try {
             Row row = dataClient.readRow(tableId, shortUrl);
 
@@ -90,15 +94,7 @@ public class UrlService {
                             "Family: %s    Qualifier: %s    Value: %s%n",
                             cell.getFamily(), cell.getQualifier().toStringUtf8(), cell.getValue().toStringUtf8());
                 }
-
-                List<RowCell> longUrlCells = row.getCells("url_details", "longUrl");
-
-                if (!longUrlCells.isEmpty()) {
-                    return longUrlCells.get(0).getValue().toStringUtf8();
-                } else {
-                    // Handle the case where longUrl is not found in the row
-                    throw new RuntimeException("Long URL not found for " + shortUrl);
-                }
+                return row;
             } else {
                 // Handle the case where the row with the given shortUrl is not found
                 throw new RuntimeException("Row not found for " + shortUrl);
@@ -107,6 +103,28 @@ public class UrlService {
             throw new RuntimeException("Error occurred while retrieving the Long URL");
         }
     }
+
+    public String redirect(String shortUrl) {
+        Row row = getRowByKey(shortUrl);
+        List<RowCell> longUrlCells = row.getCells(COLUMN_FAMILY_URL, "longUrl");
+        List<RowCell> clicksNAMCells = row.getCells(COLUMN_FAMILY_CLICK, "clicksNAM");
+
+        String longUrl = null;
+
+        if (!longUrlCells.isEmpty()) {
+            longUrl = longUrlCells.get(0).getValue().toStringUtf8();
+        }
+        // TODO: make this regionally
+        // Add click times
+        if (!clicksNAMCells.isEmpty()) {
+            ReadModifyWriteRow rowMutation = ReadModifyWriteRow.create(tableId, shortUrl)
+                    .increment(COLUMN_FAMILY_CLICK, "clicksNAM", 1);
+            dataClient.readModifyWriteRow(rowMutation);
+        }
+
+        return longUrl;
+    }
+
 
     public void deleteUrlById(String shortUrl) {
         RowMutation rowMutation = RowMutation.create(tableId, shortUrl).deleteRow();
@@ -128,6 +146,32 @@ public class UrlService {
             return createDate.plusDays(30);
         }
         return LocalDateTime.parse(expireDate);
+    }
+
+    public Map<String, Long> getStats(String shortUrl) {
+        try {
+            Row row = dataClient.readRow(tableId, shortUrl);
+
+            if (row != null) {
+                List<RowCell> clicksNAMCells = row.getCells(COLUMN_FAMILY_CLICK, "clicksNAM");
+                List<RowCell> clicksEMEACells = row.getCells(COLUMN_FAMILY_CLICK, "clicksEMEA");
+                List<RowCell> clicksAPACCells = row.getCells(COLUMN_FAMILY_CLICK, "clicksAPAC");
+                if (!clicksNAMCells.isEmpty() && !clicksEMEACells.isEmpty() && !clicksAPACCells.isEmpty()) {
+                    Map<String, Long> clicks = new HashMap<>();
+                    clicks.put("NAM", ByteBuffer.wrap(clicksNAMCells.get(0).getValue().toByteArray()).getLong());
+                    clicks.put("EMEA", ByteBuffer.wrap(clicksEMEACells.get(0).getValue().toByteArray()).getLong());
+                    clicks.put("APAC", ByteBuffer.wrap(clicksAPACCells.get(0).getValue().toByteArray()).getLong());
+                    return clicks;
+                } else {
+                    throw new RuntimeException("Clicks found for" + shortUrl);
+                }
+            } else {
+                // Handle the case where the row with the given shortUrl is not found
+                throw new RuntimeException("Row not found for " + shortUrl);
+            }
+        } catch (Exception e) {
+            throw new RuntimeException("Error occurred while retrieving the Long URL");
+        }
     }
 
 }

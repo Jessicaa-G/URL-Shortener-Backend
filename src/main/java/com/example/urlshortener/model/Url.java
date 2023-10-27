@@ -12,11 +12,11 @@ public class Url {
     private String shortUrl;
     private LocalDateTime createDate;
     private LocalDateTime expireDate;
-    private int clicksNAM = 0;
-    private int clicksEMEA = 0;
-    private int clicksAPAC = 0;
+    private long clicksNAM = 0;
+    private long clicksEMEA = 0;
+    private long clicksAPAC = 0;
 
-    public Url(String longUrl, String shortUrl, LocalDateTime createDate, LocalDateTime expireDate, int clicksNAM, int clicksEMEA, int clicksAPAC) {
+    public Url(String longUrl, String shortUrl, LocalDateTime createDate, LocalDateTime expireDate, long clicksNAM, long clicksEMEA, long clicksAPAC) {
         this.longUrl = longUrl;
         this.shortUrl = shortUrl;
         this.createDate = createDate;
@@ -61,27 +61,27 @@ public class Url {
         this.expireDate = expireDate;
     }
 
-    public int getClicksNAM() {
+    public long getClicksNAM() {
         return clicksNAM;
     }
 
-    public void setClicksNAM(int clicksNAM) {
+    public void setClicksNAM(long clicksNAM) {
         this.clicksNAM = clicksNAM;
     }
 
-    public int getClicksEMEA() {
+    public long getClicksEMEA() {
         return clicksEMEA;
     }
 
-    public void setClicksEMEA(int clicksEMEA) {
+    public void setClicksEMEA(long clicksEMEA) {
         this.clicksEMEA = clicksEMEA;
     }
 
-    public int getClicksAPAC() {
+    public long getClicksAPAC() {
         return clicksAPAC;
     }
 
-    public void setClicksAPAC(int clicksAPAC) {
+    public void setClicksAPAC(long clicksAPAC) {
         this.clicksAPAC = clicksAPAC;
     }
 
