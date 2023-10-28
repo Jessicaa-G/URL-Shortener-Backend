@@ -16,7 +16,7 @@ import org.springframework.stereotype.Service;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
-import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -56,10 +56,10 @@ public class UrlService {
                     // .setCell(COLUMN_FAMILY_URL, "shortUrl", shortenedUrl.getShortUrl())
                     .deleteCells(COLUMN_FAMILY_TIME, "createDate")
                     .setCell(COLUMN_FAMILY_TIME, "createDate",
-                            shortenedUrl.getCreateDate().toEpochSecond(ZoneOffset.UTC))
+                            shortenedUrl.getCreateDate().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")))
                     .deleteCells(COLUMN_FAMILY_TIME, "expireDate")
                     .setCell(COLUMN_FAMILY_TIME, "expireDate",
-                            shortenedUrl.getExpireDate().toEpochSecond(ZoneOffset.UTC))
+                            shortenedUrl.getExpireDate().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")))
                     .deleteCells(COLUMN_FAMILY_CLICK, "clicksNAM")
                     .setCell(COLUMN_FAMILY_CLICK, "clicksNAM",
                             shortenedUrl.getClicksNAM())

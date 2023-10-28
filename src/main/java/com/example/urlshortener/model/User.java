@@ -7,6 +7,7 @@ import javax.persistence.Column;
 import javax.persistence.Entity;
 import javax.persistence.Id;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
 
 @Entity
@@ -26,6 +27,10 @@ public class User {
     @Setter
     @Column(nullable = false)
     private String password;
+
+    @Getter
+    @Setter
+    private List<String> urls;
 
     @Getter
     @Setter

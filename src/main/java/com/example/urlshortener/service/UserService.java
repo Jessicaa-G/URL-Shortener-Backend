@@ -13,6 +13,7 @@ import org.springframework.stereotype.Service;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.Arrays;
 import java.util.UUID;
 
 @Service
@@ -56,6 +57,9 @@ public class UserService {
                 case "password":
                     user.setPassword(cell.getValue().toStringUtf8());
                     break;
+                case "urls":
+                    user.setUrls(Arrays.asList(cell.getValue().toStringUtf8().split(",")));
+                    break;
                 case "tier":
                     user.setTier(cell.getValue().toStringUtf8());
                     break;
@@ -84,6 +88,7 @@ public class UserService {
                 .deleteCells(COLUMN_FAMILY_USER, "tier")
                 .setCell(COLUMN_FAMILY_USER, "tier", tier)
                 .deleteCells(COLUMN_FAMILY_USER, "tier_expire")
+                // TODO: set expiration date according to user tier level
                 .setCell(COLUMN_FAMILY_USER, "tier_expire",
                         LocalDateTime.now().plusDays(30).format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
 

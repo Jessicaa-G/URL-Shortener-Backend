@@ -1,5 +1,6 @@
 package com.example.urlshortener.Controller;
 
+import com.auth0.jwt.interfaces.DecodedJWT;
 import com.example.urlshortener.model.SubscriptionDto;
 import com.example.urlshortener.model.UrlErrorResponse;
 import com.example.urlshortener.model.User;
@@ -57,8 +58,8 @@ public class UserController {
             for (Cookie cookie : cookies) {
                 if ("auth_token".equals(cookie.getName())) {
                     try {
-                        jwtService.verifyToken(cookie.getValue());
-                        return new ResponseEntity<>("User already logged in", HttpStatus.OK);
+                        DecodedJWT decode = jwtService.verifyToken(cookie.getValue());
+                        return new ResponseEntity<>("User " + decode.getSubject() + " already logged in", HttpStatus.OK);
                     } catch (Exception e) {
                         // Token is invalid or expired, proceed with login logic
                     }
