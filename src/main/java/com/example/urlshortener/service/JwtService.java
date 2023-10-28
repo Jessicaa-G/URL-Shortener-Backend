@@ -28,7 +28,7 @@ public class JwtService {
     public String generateToken(User user) {
         Date expirationDate = new Date(System.currentTimeMillis() + EXPIRATION_TIME);
         return JWT.create()
-                .withSubject(user.getEmail())
+                .withSubject(user.getId().toString())
                 .withExpiresAt(expirationDate)
                 .sign(Algorithm.HMAC512(SECRET_KEY));
     }
@@ -39,4 +39,3 @@ public class JwtService {
                 .verify(token);
     }
 }
-
