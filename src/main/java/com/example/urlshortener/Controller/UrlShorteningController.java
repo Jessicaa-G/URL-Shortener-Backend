@@ -28,7 +28,7 @@ public class UrlShorteningController {
             UrlResponse res = new UrlResponse();
             res.setLongUrl(shortenedUrl.getLongUrl());
             res.setExpireDate(shortenedUrl.getExpireDate());
-            res.setShortUrl(BASE_ADDR + "/shortened/" + shortenedUrl.getShortUrl());
+            res.setShortUrl(BASE_ADDR + "/shortenurl/" + shortenedUrl.getShortUrl());
             return new ResponseEntity<UrlResponse>(res, HttpStatus.OK);
         }
 
@@ -43,7 +43,7 @@ public class UrlShorteningController {
         return new ResponseEntity<UrlResponse>(HttpStatus.OK);
     }
 
-    @GetMapping("shortened/{urlParam}")
+    @GetMapping("shortenurl/{urlParam}")
     public Object redirect(@PathVariable String urlParam) {
         String longUrl = urlService.redirect(urlParam);
         if (longUrl != null) {
