@@ -34,8 +34,14 @@ public class UserController {
             return new ResponseEntity<>(res, HttpStatus.OK);
         }
 
-        UrlErrorResponse error = new UrlErrorResponse("404", "Error occurred when creating user");
-        return new ResponseEntity<>(error, HttpStatus.NOT_FOUND);
+        UrlErrorResponse error = new UrlErrorResponse("409", "Email already used by another user");
+        return new ResponseEntity<>(error, HttpStatus.CONFLICT);
+    }
+
+    @DeleteMapping("user")
+    public ResponseEntity<?> deleteUrl(@RequestParam String userId) {
+        userService.deleteUser(userId);
+        return ResponseEntity.ok("User successfully deleted");
     }
 
     @PutMapping("subscribe")
@@ -46,29 +52,20 @@ public class UserController {
             return new ResponseEntity<>(user, HttpStatus.OK);
         }
 
-        UrlErrorResponse error = new UrlErrorResponse("404", "User not found");
-        return new ResponseEntity<>(error, HttpStatus.NOT_FOUND);
+        UrlErrorResponse error = new UrlErrorResponse("400", "Bad request (user or tier not exist)");
+        return new ResponseEntity<>(error, HttpStatus.BAD_REQUEST);
     }
 
     @PostMapping("login")
     public ResponseEntity<?> loginUser(@RequestBody User user, HttpServletRequest request,
             HttpServletResponse response) {
-        Cookie[] cookies = request.getCookies();
-        if (cookies != null) {
-            for (Cookie cookie : cookies) {
-                if ("auth_token".equals(cookie.getName())) {
-                    try {
-                        DecodedJWT decode = jwtService.verifyToken(cookie.getValue());
-                        return new ResponseEntity<>("User " + decode.getSubject() + " already logged in", HttpStatus.OK);
-                    } catch (Exception e) {
-                        // Token is invalid or expired, proceed with login logic
-                    }
-                }
-            }
-        }
+        String userId = userService.userLoggedIn(request.getCookies());
+        if(userId!="") return new ResponseEntity<>("User " + userId + " already logged in", HttpStatus.OK);
+
         User storedUser = userService.getUserByEmail(user.getEmail());
         if (storedUser != null && storedUser.getPassword()
                 .equals(Hashing.sha256().hashString(user.getPassword(), StandardCharsets.UTF_8).toString())) {
+            user.setId(storedUser.getId());
             String token = jwtService.generateToken(user);
             Cookie authCookie = new Cookie("auth_token", token);
             authCookie.setHttpOnly(true);

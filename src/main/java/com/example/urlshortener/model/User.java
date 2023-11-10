@@ -34,7 +34,7 @@ public class User {
 
     @Getter
     @Setter
-    private String tier;
+    private Tier tier;
 
     @Getter
     @Setter

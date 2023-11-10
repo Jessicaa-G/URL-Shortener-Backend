@@ -1,11 +1,14 @@
 package com.example.urlshortener.service;
 
+import com.auth0.jwt.interfaces.DecodedJWT;
+import com.example.urlshortener.model.Tier;
 import com.example.urlshortener.model.User;
 import com.google.api.gax.rpc.ServerStream;
 import com.google.cloud.bigtable.data.v2.BigtableDataClient;
 import com.google.cloud.bigtable.data.v2.models.*;
 import com.google.common.hash.Hashing;
 
+import jakarta.servlet.http.Cookie;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -13,7 +16,9 @@ import org.springframework.stereotype.Service;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -21,22 +26,31 @@ public class UserService {
 
     @Autowired
     private BigtableDataClient dataClient;
+
+    @Autowired
+    private JwtService jwtService;
+
     @Value("${USER_TABLE_ID}")
     private String tableId;
 
     private final String COLUMN_FAMILY_USER = "user_details";
 
+    private final String COLUMN_FAMILY_USER_URLS = "user_urls_details";
+
     public UserService() { }
 
     public User createUser(User user) {
-        String rowkey = new User().getId().toString();
+        if(getUserByEmail(user.getEmail())!=null) return null;
 
+        String rowkey = new User().getId().toString();
         RowMutation rowMutation = RowMutation.create(tableId, rowkey)
                 .deleteCells(COLUMN_FAMILY_USER, "email")
                 .setCell(COLUMN_FAMILY_USER, "email", user.getEmail())
                 .deleteCells(COLUMN_FAMILY_USER, "password")
                 .setCell(COLUMN_FAMILY_USER, "password",
-                        Hashing.sha256().hashString(user.getPassword(), StandardCharsets.UTF_8).toString());
+                        Hashing.sha256().hashString(user.getPassword(), StandardCharsets.UTF_8).toString())
+                .deleteCells(COLUMN_FAMILY_USER, "tier")
+                .setCell(COLUMN_FAMILY_USER, "tier", Tier.BRONZE.name());
 
         dataClient.mutateRow(rowMutation);
         return getUserById(rowkey);
@@ -58,10 +72,11 @@ public class UserService {
                     user.setPassword(cell.getValue().toStringUtf8());
                     break;
                 case "urls":
-                    user.setUrls(Arrays.asList(cell.getValue().toStringUtf8().split(",")));
+                    String urls = cell.getValue().toStringUtf8().replace("[","").replace("]","").replaceAll("\\s", "");
+                    user.setUrls(urls=="" ? null : new ArrayList<String>(Arrays.asList(urls.split(","))));
                     break;
                 case "tier":
-                    user.setTier(cell.getValue().toStringUtf8());
+                    user.setTier(Tier.valueOf(cell.getValue().toStringUtf8()));
                     break;
                 case "tier_expire":
                     String dateTime = cell.getValue().toStringUtf8();
@@ -81,14 +96,18 @@ public class UserService {
 
     public User updateSubscription(String userId, String tier) {
 
-        if (getUserById(userId) == null)
+        if (getUserById(userId) == null){
             return null;
+        }
+
+        if(!tier.equals(Tier.BRONZE.name()) && !tier.equals(Tier.SILVER.name()) && !tier.equals(Tier.GOLD.name())){
+            return null;
+        }
 
         RowMutation rowMutation = RowMutation.create(tableId, userId)
                 .deleteCells(COLUMN_FAMILY_USER, "tier")
                 .setCell(COLUMN_FAMILY_USER, "tier", tier)
                 .deleteCells(COLUMN_FAMILY_USER, "tier_expire")
-                // TODO: set expiration date according to user tier level
                 .setCell(COLUMN_FAMILY_USER, "tier_expire",
                         LocalDateTime.now().plusDays(30).format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
 
@@ -108,5 +127,47 @@ public class UserService {
             return getUserById(userId);
         }
         return null;
+    }
+
+    public String userLoggedIn(Cookie[] cookies) {
+        if (cookies != null) {
+            for (Cookie cookie : cookies) {
+                if ("auth_token".equals(cookie.getName())) {
+                    try {
+                        DecodedJWT decode = jwtService.verifyToken(cookie.getValue());
+                        return decode.getSubject();
+                    } catch (Exception e) {
+                        // Token is invalid or expired, proceed with login logic
+                        return "";
+                    }
+                }
+            }
+        }
+        return "";
+    }
+
+    public void deleteUrlInUser(String shorturl, String userId){
+        User user = getUserById(userId);
+        if(!user.getUrls().contains(shorturl)){
+            return;
+        }
+
+        List<String> urls = user.getUrls();
+        urls.remove(shorturl);
+        user.setUrls(urls);
+
+        RowMutation rowMutation = RowMutation.create(tableId, userId)
+                .deleteCells(COLUMN_FAMILY_USER_URLS, "urls")
+                .setCell(COLUMN_FAMILY_USER_URLS, "urls", urls.toString());
+
+        dataClient.mutateRow(rowMutation);
+    }
+
+    public void deleteUser(String userId) {
+        User user = getUserById(userId);
+        if(user==null) return;
+
+        RowMutation rowMutation = RowMutation.create(tableId, userId).deleteRow();
+        dataClient.mutateRow(rowMutation);
     }
 }

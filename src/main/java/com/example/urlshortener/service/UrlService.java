@@ -1,7 +1,9 @@
 package com.example.urlshortener.service;
 
+import com.example.urlshortener.model.Tier;
 import com.example.urlshortener.model.Url;
 import com.example.urlshortener.model.UrlDto;
+import com.example.urlshortener.model.User;
 import com.google.cloud.bigtable.data.v2.BigtableDataClient;
 import com.google.cloud.bigtable.data.v2.models.ReadModifyWriteRow;
 import com.google.cloud.bigtable.data.v2.models.Row;
@@ -13,13 +15,12 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import java.math.BigInteger;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 @Service
 public class UrlService {
@@ -27,8 +28,14 @@ public class UrlService {
     @Autowired
     private BigtableDataClient dataClient;
 
+    @Autowired
+    private UserService userService;
+
     @Value("${URL_TABLE_ID}")
-    private String tableId;
+    private String urlTableId;
+
+    @Value("${USER_TABLE_ID}")
+    private String userTableId;
 
     private final String COLUMN_FAMILY_URL = "url_details";
 
@@ -36,7 +43,42 @@ public class UrlService {
 
     private final String COLUMN_FAMILY_CLICK = "click_details";
 
+    private final String COLUMN_FAMILY_USER_URLS = "user_urls_details";
+
     public UrlService() { }
+
+    public Url generateShortUrl(UrlDto url, String userId) {
+        if (StringUtils.isNotEmpty(url.getUrl())) {
+            User user = userService.getUserById(userId);
+            Tier tier = user.getTier();
+            Url shortenedUrl;
+
+            String shortenedStr = shortenUrl(url.getUrl());
+            shortenedUrl = new Url();
+            shortenedUrl.setCreateDate(LocalDateTime.now());
+            shortenedUrl.setLongUrl(url.getUrl());
+            shortenedUrl.setShortUrl(shortenedStr);
+
+            switch (tier){
+                case BRONZE -> shortenedUrl.setExpireDate(shortenedUrl.getCreateDate().plusDays(30));
+                case SILVER -> shortenedUrl.setExpireDate(shortenedUrl.getCreateDate().plusYears(1));
+                case GOLD -> shortenedUrl.setExpireDate(shortenedUrl.getCreateDate().plusYears(1000));
+            }
+            shortenedUrl.setExpireDate(getExpireDate(url.getExpireDate(), shortenedUrl.getCreateDate()));
+            saveUrlToDB(shortenedUrl);
+
+            List<String> urls = user.getUrls()==null ? new ArrayList<>() : user.getUrls();
+            urls.add(shortenedUrl.getShortUrl());
+
+            RowMutation rowMutation = RowMutation.create(userTableId, userId)
+                    .deleteCells(COLUMN_FAMILY_USER_URLS, "urls")
+                    .setCell(COLUMN_FAMILY_USER_URLS, "urls", urls.toString());
+
+            dataClient.mutateRow(rowMutation);
+            return shortenedUrl;
+        }
+        return null;
+    }
 
     public Url generateShortUrl(UrlDto url) {
         if (StringUtils.isNotEmpty(url.getUrl())) {
@@ -47,39 +89,44 @@ public class UrlService {
             shortenedUrl.setShortUrl(shortenedStr);
             shortenedUrl.setExpireDate(getExpireDate(url.getExpireDate(), shortenedUrl.getCreateDate()));
 
-            String rowkey = shortenedUrl.getShortUrl();
-            RowMutation rowMutation = RowMutation.create(tableId, rowkey)
-                    .deleteCells(COLUMN_FAMILY_URL, "longUrl")
-                    .setCell(COLUMN_FAMILY_URL, "longUrl", shortenedUrl.getLongUrl())
-                    // TODO: short url is already in rowkey
-                    // .deleteCells(COLUMN_FAMILY_URL, "shortUrl")
-                    // .setCell(COLUMN_FAMILY_URL, "shortUrl", shortenedUrl.getShortUrl())
-                    .deleteCells(COLUMN_FAMILY_TIME, "createDate")
-                    .setCell(COLUMN_FAMILY_TIME, "createDate",
-                            shortenedUrl.getCreateDate().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")))
-                    .deleteCells(COLUMN_FAMILY_TIME, "expireDate")
-                    .setCell(COLUMN_FAMILY_TIME, "expireDate",
-                            shortenedUrl.getExpireDate().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")))
-                    .deleteCells(COLUMN_FAMILY_CLICK, "clicksNAM")
-                    .setCell(COLUMN_FAMILY_CLICK, "clicksNAM",
-                            shortenedUrl.getClicksNAM())
-                    .deleteCells(COLUMN_FAMILY_CLICK, "clicksEMEA")
-                    .setCell(COLUMN_FAMILY_CLICK, "clicksEMEA",
-                            shortenedUrl.getClicksEMEA())
-                    .deleteCells(COLUMN_FAMILY_CLICK, "clicksAPAC")
-                    .setCell(COLUMN_FAMILY_CLICK, "clicksAPAC",
-                            shortenedUrl.getClicksAPAC());
-
-            dataClient.mutateRow(rowMutation);
-            getRowByKey(shortenedUrl.getShortUrl());
+            saveUrlToDB(shortenedUrl);
             return shortenedUrl;
         }
         return null;
     }
 
+    private void saveUrlToDB(Url shortenedUrl) {
+
+        String rowkey = shortenedUrl.getShortUrl();
+        RowMutation rowMutation = RowMutation.create(urlTableId, rowkey)
+                .deleteCells(COLUMN_FAMILY_URL, "longUrl")
+                .setCell(COLUMN_FAMILY_URL, "longUrl", shortenedUrl.getLongUrl())
+                // TODO: short url is already in rowkey
+                // .deleteCells(COLUMN_FAMILY_URL, "shortUrl")
+                // .setCell(COLUMN_FAMILY_URL, "shortUrl", shortenedUrl.getShortUrl())
+                .deleteCells(COLUMN_FAMILY_TIME, "createDate")
+                .setCell(COLUMN_FAMILY_TIME, "createDate",
+                        shortenedUrl.getCreateDate().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")))
+                .deleteCells(COLUMN_FAMILY_TIME, "expireDate")
+                .setCell(COLUMN_FAMILY_TIME, "expireDate",
+                        shortenedUrl.getExpireDate().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")))
+                .deleteCells(COLUMN_FAMILY_CLICK, "clicksNAM")
+                .setCell(COLUMN_FAMILY_CLICK, "clicksNAM",
+                        shortenedUrl.getClicksNAM())
+                .deleteCells(COLUMN_FAMILY_CLICK, "clicksEMEA")
+                .setCell(COLUMN_FAMILY_CLICK, "clicksEMEA",
+                        shortenedUrl.getClicksEMEA())
+                .deleteCells(COLUMN_FAMILY_CLICK, "clicksAPAC")
+                .setCell(COLUMN_FAMILY_CLICK, "clicksAPAC",
+                        shortenedUrl.getClicksAPAC());
+
+        dataClient.mutateRow(rowMutation);
+        getRowByKey(shortenedUrl.getShortUrl());
+    }
+
     private Row getRowByKey(String shortUrl) {
         try {
-            Row row = dataClient.readRow(tableId, shortUrl);
+            Row row = dataClient.readRow(urlTableId, shortUrl);
 
             if (row != null) {
                 System.out.println("Row: " + row.getKey().toStringUtf8());
@@ -112,18 +159,24 @@ public class UrlService {
         // TODO: make this regionally
         // Add click times
         if (!clicksNAMCells.isEmpty()) {
-            ReadModifyWriteRow rowMutation = ReadModifyWriteRow.create(tableId, shortUrl)
-                    .increment(COLUMN_FAMILY_CLICK, "clicksNAM", 1);
-            dataClient.readModifyWriteRow(rowMutation);
+            long clicksNAM = new BigInteger(clicksNAMCells.get(0).getValue().toByteArray()).longValue();
+            RowMutation rowMutation = RowMutation.create(urlTableId, shortUrl)
+                    .deleteCells(COLUMN_FAMILY_CLICK, "clicksNAM")
+                    .setCell(COLUMN_FAMILY_CLICK, "clicksNAM",
+                            clicksNAM+1);
+
+            dataClient.mutateRow(rowMutation);
         }
 
         return longUrl;
     }
 
 
-    public void deleteUrlById(String shortUrl) {
-        RowMutation rowMutation = RowMutation.create(tableId, shortUrl).deleteRow();
+    public void deleteUrlById(String shortUrl, String userId) {
+        RowMutation rowMutation = RowMutation.create(urlTableId, shortUrl).deleteRow();
         dataClient.mutateRow(rowMutation);
+
+        userService.deleteUrlInUser(shortUrl, userId);
     }
 
     private String shortenUrl(String url) {
@@ -145,7 +198,7 @@ public class UrlService {
 
     public Map<String, Long> getStats(String shortUrl) {
         try {
-            Row row = dataClient.readRow(tableId, shortUrl);
+            Row row = dataClient.readRow(urlTableId, shortUrl);
 
             if (row != null) {
                 List<RowCell> clicksNAMCells = row.getCells(COLUMN_FAMILY_CLICK, "clicksNAM");
@@ -169,4 +222,57 @@ public class UrlService {
         }
     }
 
+    public Url getUrlById(String shorturl) {
+        Row row = dataClient.readRow(urlTableId, shorturl);
+        if (row == null)
+            return null;
+        Url url = new Url();
+        url.setShortUrl(shorturl);
+        System.out.println("Row: " + row.getKey().toStringUtf8());
+        for (RowCell cell : row.getCells()) {
+            String col = cell.getQualifier().toStringUtf8();
+            switch (col) {
+                case "longUrl":
+                    url.setLongUrl(cell.getValue().toStringUtf8());
+                    break;
+                case "createDate":
+                    String dateTime = cell.getValue().toStringUtf8();
+                    DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+                    url.setCreateDate(LocalDateTime.parse(dateTime, formatter));
+                    break;
+                case "expireDate":
+                    dateTime = cell.getValue().toStringUtf8();
+                    formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+                    url.setExpireDate(LocalDateTime.parse(dateTime, formatter));
+                    break;
+                case "clicksNAM":
+                    url.setClicksNAM(new BigInteger(cell.getValue().toByteArray()).longValue());
+                    break;
+                case "clicksEMEA":
+                    url.setClicksEMEA(new BigInteger(cell.getValue().toByteArray()).longValue());
+                    break;
+                case "clicksAPAC":
+                    url.setClicksAPAC(new BigInteger(cell.getValue().toByteArray()).longValue());
+                    break;
+            }
+            System.out.printf(
+                    "Family: %s    Qualifier: %s    Value: %s%n",
+                    cell.getFamily(), cell.getQualifier().toStringUtf8(), cell.getValue().toStringUtf8());
+        }
+        return url;
+    }
+
+    public List<Url> getUrlsByUser(String userId) {
+        User user = userService.getUserById(userId);
+        if(user==null) return null;
+        List<String> shortUrls = user.getUrls();
+
+        List<Url> urls = new ArrayList<>();
+        if(shortUrls==null) return urls;
+
+        for(String url: shortUrls){
+            if(getUrlById(url)!=null) urls.add(getUrlById(url));
+        }
+        return urls;
+    }
 }
