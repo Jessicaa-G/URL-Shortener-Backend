@@ -4,6 +4,9 @@ import com.auth0.jwt.interfaces.DecodedJWT;
 import com.example.urlshortener.model.SubscriptionDto;
 import com.example.urlshortener.model.UrlErrorResponse;
 import com.example.urlshortener.model.User;
+import com.example.urlshortener.model.exception.BadRequestException;
+import com.example.urlshortener.model.exception.ConflictException;
+import com.example.urlshortener.model.exception.NotFoundException;
 import com.example.urlshortener.service.JwtService;
 import com.example.urlshortener.service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -28,32 +31,35 @@ public class UserController {
 
     @PostMapping("user")
     public ResponseEntity<?> addUser(@RequestBody User user) {
-        User res = userService.createUser(user);
-
-        if (res != null) {
+        try {
+            User res = userService.createUser(user);
             return new ResponseEntity<>(res, HttpStatus.OK);
-        }
 
-        UrlErrorResponse error = new UrlErrorResponse("409", "Email already used by another user");
-        return new ResponseEntity<>(error, HttpStatus.CONFLICT);
+        } catch (ConflictException e){
+            return new ResponseEntity<>(e.getMessage(), HttpStatus.CONFLICT);
+        }
     }
 
     @DeleteMapping("user")
     public ResponseEntity<?> deleteUrl(@RequestParam String userId) {
-        userService.deleteUser(userId);
-        return ResponseEntity.ok("User successfully deleted");
+        try {
+            userService.deleteUser(userId);
+            return ResponseEntity.ok("User successfully deleted");
+        } catch (NotFoundException e){
+            return new ResponseEntity<>(e.getMessage(), HttpStatus.NOT_FOUND);
+        }
     }
 
     @PutMapping("subscribe")
     public ResponseEntity<?> updateSubscription(@RequestBody SubscriptionDto dto) {
-        User user = userService.updateSubscription(dto.getUserId(), dto.getTier());
-
-        if (user != null) {
+        try{
+            User user = userService.updateSubscription(dto.getUserId(), dto.getTier());
             return new ResponseEntity<>(user, HttpStatus.OK);
+        } catch (NotFoundException e) {
+            return new ResponseEntity<>(e.getMessage(), HttpStatus.NOT_FOUND);
+        } catch (BadRequestException e) {
+            return new ResponseEntity<>(e.getMessage(), HttpStatus.BAD_REQUEST);
         }
-
-        UrlErrorResponse error = new UrlErrorResponse("400", "Bad request (user or tier not exist)");
-        return new ResponseEntity<>(error, HttpStatus.BAD_REQUEST);
     }
 
     @PostMapping("login")

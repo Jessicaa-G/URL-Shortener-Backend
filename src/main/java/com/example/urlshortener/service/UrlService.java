@@ -4,8 +4,9 @@ import com.example.urlshortener.model.Tier;
 import com.example.urlshortener.model.Url;
 import com.example.urlshortener.model.UrlDto;
 import com.example.urlshortener.model.User;
+import com.example.urlshortener.model.exception.BadRequestException;
+import com.example.urlshortener.model.exception.NotFoundException;
 import com.google.cloud.bigtable.data.v2.BigtableDataClient;
-import com.google.cloud.bigtable.data.v2.models.ReadModifyWriteRow;
 import com.google.cloud.bigtable.data.v2.models.Row;
 import com.google.cloud.bigtable.data.v2.models.RowCell;
 import com.google.cloud.bigtable.data.v2.models.RowMutation;
@@ -48,36 +49,34 @@ public class UrlService {
     public UrlService() { }
 
     public Url generateShortUrl(UrlDto url, String userId) {
-        if (StringUtils.isNotEmpty(url.getUrl())) {
-            User user = userService.getUserById(userId);
-            Tier tier = user.getTier();
-            Url shortenedUrl;
+        if(StringUtils.isEmpty(url.getUrl())) throw new BadRequestException("Bad request, url cannot be empty");
+        User user = userService.getUserById(userId);
+        Tier tier = user.getTier();
+        Url shortenedUrl;
 
-            String shortenedStr = shortenUrl(url.getUrl());
-            shortenedUrl = new Url();
-            shortenedUrl.setCreateDate(LocalDateTime.now());
-            shortenedUrl.setLongUrl(url.getUrl());
-            shortenedUrl.setShortUrl(shortenedStr);
+        String shortenedStr = shortenUrl(url.getUrl());
+        shortenedUrl = new Url();
+        shortenedUrl.setCreateDate(LocalDateTime.now());
+        shortenedUrl.setLongUrl(url.getUrl());
+        shortenedUrl.setShortUrl(shortenedStr);
 
-            switch (tier){
-                case BRONZE -> shortenedUrl.setExpireDate(shortenedUrl.getCreateDate().plusDays(30));
-                case SILVER -> shortenedUrl.setExpireDate(shortenedUrl.getCreateDate().plusYears(1));
-                case GOLD -> shortenedUrl.setExpireDate(shortenedUrl.getCreateDate().plusYears(1000));
-            }
-            shortenedUrl.setExpireDate(getExpireDate(url.getExpireDate(), shortenedUrl.getCreateDate()));
-            saveUrlToDB(shortenedUrl);
-
-            List<String> urls = user.getUrls()==null ? new ArrayList<>() : user.getUrls();
-            urls.add(shortenedUrl.getShortUrl());
-
-            RowMutation rowMutation = RowMutation.create(userTableId, userId)
-                    .deleteCells(COLUMN_FAMILY_USER_URLS, "urls")
-                    .setCell(COLUMN_FAMILY_USER_URLS, "urls", urls.toString());
-
-            dataClient.mutateRow(rowMutation);
-            return shortenedUrl;
+        switch (tier){
+            case BRONZE -> shortenedUrl.setExpireDate(shortenedUrl.getCreateDate().plusDays(30));
+            case SILVER -> shortenedUrl.setExpireDate(shortenedUrl.getCreateDate().plusYears(1));
+            case GOLD -> shortenedUrl.setExpireDate(shortenedUrl.getCreateDate().plusYears(1000));
         }
-        return null;
+        shortenedUrl.setExpireDate(getExpireDate(url.getExpireDate(), shortenedUrl.getCreateDate()));
+        saveUrlToDB(shortenedUrl);
+
+        List<String> urls = user.getUrls()==null ? new ArrayList<>() : user.getUrls();
+        urls.add(shortenedUrl.getShortUrl());
+
+        RowMutation rowMutation = RowMutation.create(userTableId, userId)
+                .deleteCells(COLUMN_FAMILY_USER_URLS, "urls")
+                .setCell(COLUMN_FAMILY_USER_URLS, "urls", urls.toString());
+
+        dataClient.mutateRow(rowMutation);
+        return shortenedUrl;
     }
 
     public Url generateShortUrl(UrlDto url) {
@@ -125,25 +124,18 @@ public class UrlService {
     }
 
     private Row getRowByKey(String shortUrl) {
-        try {
-            Row row = dataClient.readRow(urlTableId, shortUrl);
+        Row row = dataClient.readRow(urlTableId, shortUrl);
 
-            if (row != null) {
-                System.out.println("Row: " + row.getKey().toStringUtf8());
+        if(row==null) throw new NotFoundException("Not Found, Url " + shortUrl + " does not exist.");
 
-                for (RowCell cell : row.getCells()) {
-                    System.out.printf(
-                            "Family: %s    Qualifier: %s    Value: %s%n",
-                            cell.getFamily(), cell.getQualifier().toStringUtf8(), cell.getValue().toStringUtf8());
-                }
-                return row;
-            } else {
-                // Handle the case where the row with the given shortUrl is not found
-                throw new RuntimeException("Row not found for " + shortUrl);
-            }
-        } catch (Exception e) {
-            throw new RuntimeException("Error occurred while retrieving the Long URL");
+        System.out.println("Row: " + row.getKey().toStringUtf8());
+
+        for (RowCell cell : row.getCells()) {
+            System.out.printf(
+                    "Family: %s    Qualifier: %s    Value: %s%n",
+                    cell.getFamily(), cell.getQualifier().toStringUtf8(), cell.getValue().toStringUtf8());
         }
+        return row;
     }
 
     public String redirect(String shortUrl) {
@@ -173,6 +165,8 @@ public class UrlService {
 
 
     public void deleteUrlById(String shortUrl, String userId) {
+        Url url = getUrlById(shortUrl);
+        if(url==null) throw new NotFoundException("Not Found, Url " + shortUrl + " does not exist.");
         RowMutation rowMutation = RowMutation.create(urlTableId, shortUrl).deleteRow();
         dataClient.mutateRow(rowMutation);
 
@@ -197,35 +191,27 @@ public class UrlService {
     }
 
     public Map<String, Long> getStats(String shortUrl) {
-        try {
-            Row row = dataClient.readRow(urlTableId, shortUrl);
+        Row row = dataClient.readRow(urlTableId, shortUrl);
+        if(row==null) throw new NotFoundException("Not Found, Url " + shortUrl + " does not exist.");
 
-            if (row != null) {
-                List<RowCell> clicksNAMCells = row.getCells(COLUMN_FAMILY_CLICK, "clicksNAM");
-                List<RowCell> clicksEMEACells = row.getCells(COLUMN_FAMILY_CLICK, "clicksEMEA");
-                List<RowCell> clicksAPACCells = row.getCells(COLUMN_FAMILY_CLICK, "clicksAPAC");
-                if (!clicksNAMCells.isEmpty() && !clicksEMEACells.isEmpty() && !clicksAPACCells.isEmpty()) {
-                    Map<String, Long> clicks = new HashMap<>();
-                    clicks.put("NAM", ByteBuffer.wrap(clicksNAMCells.get(0).getValue().toByteArray()).getLong());
-                    clicks.put("EMEA", ByteBuffer.wrap(clicksEMEACells.get(0).getValue().toByteArray()).getLong());
-                    clicks.put("APAC", ByteBuffer.wrap(clicksAPACCells.get(0).getValue().toByteArray()).getLong());
-                    return clicks;
-                } else {
-                    throw new RuntimeException("Clicks found for" + shortUrl);
-                }
-            } else {
-                // Handle the case where the row with the given shortUrl is not found
-                throw new RuntimeException("Row not found for " + shortUrl);
-            }
-        } catch (Exception e) {
-            throw new RuntimeException("Error occurred while retrieving the Long URL");
+        List<RowCell> clicksNAMCells = row.getCells(COLUMN_FAMILY_CLICK, "clicksNAM");
+        List<RowCell> clicksEMEACells = row.getCells(COLUMN_FAMILY_CLICK, "clicksEMEA");
+        List<RowCell> clicksAPACCells = row.getCells(COLUMN_FAMILY_CLICK, "clicksAPAC");
+        if (!clicksNAMCells.isEmpty() && !clicksEMEACells.isEmpty() && !clicksAPACCells.isEmpty()) {
+            Map<String, Long> clicks = new HashMap<>();
+            clicks.put("NAM", ByteBuffer.wrap(clicksNAMCells.get(0).getValue().toByteArray()).getLong());
+            clicks.put("EMEA", ByteBuffer.wrap(clicksEMEACells.get(0).getValue().toByteArray()).getLong());
+            clicks.put("APAC", ByteBuffer.wrap(clicksAPACCells.get(0).getValue().toByteArray()).getLong());
+            return clicks;
+        } else {
+            throw new BadRequestException("Clicks found for" + shortUrl);
         }
     }
 
     public Url getUrlById(String shorturl) {
         Row row = dataClient.readRow(urlTableId, shorturl);
-        if (row == null)
-            return null;
+        if (row == null) throw new NotFoundException("Not Found, Url " + shorturl + " does not exist.");
+
         Url url = new Url();
         url.setShortUrl(shorturl);
         System.out.println("Row: " + row.getKey().toStringUtf8());
@@ -264,7 +250,7 @@ public class UrlService {
 
     public List<Url> getUrlsByUser(String userId) {
         User user = userService.getUserById(userId);
-        if(user==null) return null;
+        if(user==null) throw new NotFoundException("Not Found, User " + userId + " does not exist.");
         List<String> shortUrls = user.getUrls();
 
         List<Url> urls = new ArrayList<>();

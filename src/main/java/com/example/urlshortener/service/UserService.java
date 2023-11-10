@@ -3,6 +3,9 @@ package com.example.urlshortener.service;
 import com.auth0.jwt.interfaces.DecodedJWT;
 import com.example.urlshortener.model.Tier;
 import com.example.urlshortener.model.User;
+import com.example.urlshortener.model.exception.BadRequestException;
+import com.example.urlshortener.model.exception.ConflictException;
+import com.example.urlshortener.model.exception.NotFoundException;
 import com.google.api.gax.rpc.ServerStream;
 import com.google.cloud.bigtable.data.v2.BigtableDataClient;
 import com.google.cloud.bigtable.data.v2.models.*;
@@ -40,7 +43,7 @@ public class UserService {
     public UserService() { }
 
     public User createUser(User user) {
-        if(getUserByEmail(user.getEmail())!=null) return null;
+        if(getUserByEmail(user.getEmail())!=null) throw new ConflictException("This email has been used already.");
 
         String rowkey = new User().getId().toString();
         RowMutation rowMutation = RowMutation.create(tableId, rowkey)
@@ -97,11 +100,11 @@ public class UserService {
     public User updateSubscription(String userId, String tier) {
 
         if (getUserById(userId) == null){
-            return null;
+            throw new NotFoundException("Not Found, User " + userId + " does not exist.");
         }
 
         if(!tier.equals(Tier.BRONZE.name()) && !tier.equals(Tier.SILVER.name()) && !tier.equals(Tier.GOLD.name())){
-            return null;
+            throw new BadRequestException("Tier name not valid (BRONZE, SILVER or GOLD only).");
         }
 
         RowMutation rowMutation = RowMutation.create(tableId, userId)
@@ -126,7 +129,7 @@ public class UserService {
             String userId = row.getKey().toStringUtf8();
             return getUserById(userId);
         }
-        return null;
+        throw new NotFoundException("Not Found, Email " + email + " does not exist.");
     }
 
     public String userLoggedIn(Cookie[] cookies) {
@@ -165,7 +168,7 @@ public class UserService {
 
     public void deleteUser(String userId) {
         User user = getUserById(userId);
-        if(user==null) return;
+        if(user==null) throw new NotFoundException("Not Found, User " + userId + " does not exist.");
 
         RowMutation rowMutation = RowMutation.create(tableId, userId).deleteRow();
         dataClient.mutateRow(rowMutation);

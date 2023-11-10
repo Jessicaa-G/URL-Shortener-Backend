@@ -1,6 +1,8 @@
 package com.example.urlshortener.Controller;
 
 import com.example.urlshortener.model.*;
+import com.example.urlshortener.model.exception.BadRequestException;
+import com.example.urlshortener.model.exception.NotFoundException;
 import com.example.urlshortener.service.UrlService;
 import com.example.urlshortener.service.UserService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -49,48 +51,62 @@ public class UrlShorteningController {
     @DeleteMapping("shortenurl")
     public ResponseEntity<?> deleteUrl(@RequestParam String url, HttpServletRequest request) {
         String userId = userService.userLoggedIn(request.getCookies());
-        if(userId==""){
-            UrlErrorResponse error = new UrlErrorResponse("404", "Access error, you need to login first");
-            return new ResponseEntity<UrlErrorResponse>(error, HttpStatus.NOT_FOUND);
+        try {
+            if (userId == "") {
+                throw new BadRequestException("Access error, you need to login first");
+            }
+            urlService.deleteUrlById(url, userId);
+            return ResponseEntity.ok("Url successfully deleted");
+        } catch (NotFoundException e) {
+            return new ResponseEntity<>(e.getMessage(), HttpStatus.NOT_FOUND);
+        } catch (BadRequestException e) {
+            return new ResponseEntity<>(e.getMessage(), HttpStatus.BAD_REQUEST);
         }
-        urlService.deleteUrlById(url, userId);
-        return ResponseEntity.ok("Url successfully deleted");
     }
 
     @GetMapping("shortenurl/{urlParam}")
     public Object redirect(@PathVariable String urlParam) {
-        String longUrl = urlService.redirect(urlParam);
-        if (longUrl != null) {
-            // Redirect to long url
-            RedirectView redirectView = new RedirectView();
-            redirectView.setUrl(longUrl);
-            return redirectView;
-        }
+        try {
+            String longUrl = urlService.redirect(urlParam);
+            if (longUrl != null) {
+                // Redirect to long url
+                RedirectView redirectView = new RedirectView();
+                redirectView.setUrl(longUrl);
+                return redirectView;
+            }
 
-        UrlErrorResponse error = new UrlErrorResponse("404", "Error occurred when shortening url");
-        return new ResponseEntity<UrlErrorResponse>(error, HttpStatus.OK);
+            UrlErrorResponse error = new UrlErrorResponse("404", "Error occurred when shortening url");
+            return new ResponseEntity<UrlErrorResponse>(error, HttpStatus.OK);
+        } catch (NotFoundException e) {
+            return new ResponseEntity<>(e.getMessage(), HttpStatus.NOT_FOUND);
+        }
     }
 
     @GetMapping("stats/{urlParam}")
     public ResponseEntity<?> getStats(@PathVariable String urlParam) {
-        Map<String, Long> clicks = urlService.getStats(urlParam);
-        if (clicks != null) {
+        try {
+            Map<String, Long> clicks = urlService.getStats(urlParam);
             return ResponseEntity.ok(clicks);
+        } catch (NotFoundException e) {
+            return new ResponseEntity<>(e.getMessage(), HttpStatus.NOT_FOUND);
+        } catch (BadRequestException e) {
+            return new ResponseEntity<>(e.getMessage(), HttpStatus.BAD_REQUEST);
         }
-
-        UrlErrorResponse error = new UrlErrorResponse("404", "Error occurred when shortening url");
-        return new ResponseEntity<UrlErrorResponse>(error, HttpStatus.OK);
     }
 
     @GetMapping("shortenurls")
     public ResponseEntity<?> getUrlsByUser(HttpServletRequest request) {
-        String userId = userService.userLoggedIn(request.getCookies());
-        if(userId==""){
-            UrlErrorResponse error = new UrlErrorResponse("404", "Access error, you need to login first");
-            return new ResponseEntity<UrlErrorResponse>(error, HttpStatus.NOT_FOUND);
+        try {
+            String userId = userService.userLoggedIn(request.getCookies());
+            if (userId == "") {
+                throw new BadRequestException("Access error, you need to login first");
+            }
+            List<Url> urls = urlService.getUrlsByUser(userId);
+            return ResponseEntity.ok(urls);
+        } catch (NotFoundException e) {
+            return new ResponseEntity<>(e.getMessage(), HttpStatus.NOT_FOUND);
+        } catch (BadRequestException e) {
+            return new ResponseEntity<>(e.getMessage(), HttpStatus.BAD_REQUEST);
         }
-
-        List<Url> urls = urlService.getUrlsByUser(userId);
-        return ResponseEntity.ok(urls);
     }
 }
