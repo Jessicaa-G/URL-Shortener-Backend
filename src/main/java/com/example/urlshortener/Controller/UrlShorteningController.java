@@ -13,6 +13,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.view.RedirectView;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -67,7 +68,7 @@ public class UrlShorteningController {
     @GetMapping("shortenurl/{urlParam}")
     public Object redirect(@PathVariable String urlParam) {
         try {
-            String longUrl = urlService.redirect(urlParam);
+            String longUrl = urlService.resolve(urlParam, true);
             if (longUrl != null) {
                 // Redirect to long url
                 RedirectView redirectView = new RedirectView();
@@ -108,5 +109,54 @@ public class UrlShorteningController {
         } catch (BadRequestException e) {
             return new ResponseEntity<>(e.getMessage(), HttpStatus.BAD_REQUEST);
         }
+    }
+
+    @PostMapping("bulk/shortenurl")
+    public ResponseEntity<?> generateBulkShortUrls(@RequestBody List<UrlDto> urls, HttpServletRequest request) {
+        String userId = userService.userLoggedIn(request.getCookies());
+
+        List<UrlResponse> urlResponses = new ArrayList<>();
+
+        for (UrlDto url : urls) {
+            Url shortenedUrl = null;
+
+            if (userId != "") {
+                shortenedUrl = urlService.generateShortUrl(url, userId);
+            } else {
+                shortenedUrl = urlService.generateShortUrl(url);
+            }
+
+            if (shortenedUrl != null) {
+                UrlResponse res = new UrlResponse();
+                res.setLongUrl(shortenedUrl.getLongUrl());
+                res.setExpireDate(shortenedUrl.getExpireDate());
+                res.setShortUrl(BASE_ADDR + "/shortenurl/" + shortenedUrl.getShortUrl());
+                urlResponses.add(res);
+            } else {
+                // Handle the case where shortening fails for a URL
+                UrlErrorResponse error = new UrlErrorResponse("404", "Error occurred when shortening url");
+                return new ResponseEntity<UrlErrorResponse>(error, HttpStatus.OK);
+            }
+        }
+
+        return new ResponseEntity<List<UrlResponse>>(urlResponses, HttpStatus.OK);
+    }
+
+    @PostMapping("bulk/resolveurl")
+    public ResponseEntity<?> resolveBulkUrls(@RequestBody List<String> shortUrls) {
+        List<String> originalUrls = new ArrayList<>();
+
+        for (String shortUrl : shortUrls) {
+            try {
+                String originalUrl = urlService.resolve(shortUrl, false);
+                originalUrls.add(originalUrl);
+            } catch (NotFoundException e) {
+                // Handle the case where expansion fails for a URL
+                UrlErrorResponse error = new UrlErrorResponse("404", "Error occurred when expanding url");
+                return new ResponseEntity<UrlErrorResponse>(error, HttpStatus.OK);
+            }
+        }
+
+        return new ResponseEntity<List<String>>(originalUrls, HttpStatus.OK);
     }
 }

@@ -138,7 +138,7 @@ public class UrlService {
         return row;
     }
 
-    public String redirect(String shortUrl) {
+    public String resolve(String shortUrl, boolean isRedirect) {
         Row row = getRowByKey(shortUrl);
         List<RowCell> longUrlCells = row.getCells(COLUMN_FAMILY_URL, "longUrl");
         List<RowCell> clicksNAMCells = row.getCells(COLUMN_FAMILY_CLICK, "clicksNAM");
@@ -150,7 +150,7 @@ public class UrlService {
         }
         // TODO: make this regionally
         // Add click times
-        if (!clicksNAMCells.isEmpty()) {
+        if (isRedirect && !clicksNAMCells.isEmpty()) {
             long clicksNAM = new BigInteger(clicksNAMCells.get(0).getValue().toByteArray()).longValue();
             RowMutation rowMutation = RowMutation.create(urlTableId, shortUrl)
                     .deleteCells(COLUMN_FAMILY_CLICK, "clicksNAM")
