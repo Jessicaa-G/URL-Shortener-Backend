@@ -25,7 +25,6 @@ public class UrlShorteningController {
 
     @Autowired
     UserService userService;
-    private final String BASE_ADDR = "http://localhost:8080";
 
     @PostMapping("shortenurl")
     public ResponseEntity<?> generateShortUrl(@RequestBody UrlDto urlDto, HttpServletRequest request) {
@@ -36,6 +35,8 @@ public class UrlShorteningController {
         }else{
             shortenedUrl = urlService.generateShortUrl(urlDto);
         }
+
+        String BASE_ADDR = request.getRequestURL().toString().replace(request.getRequestURI(),"");
 
         if (shortenedUrl != null) {
             UrlResponse res = new UrlResponse();
@@ -116,6 +117,8 @@ public class UrlShorteningController {
         String userId = userService.userLoggedIn(request.getCookies());
 
         List<UrlResponse> urlResponses = new ArrayList<>();
+
+        String BASE_ADDR = request.getRequestURL().toString().replace(request.getRequestURI(),"");
 
         for (UrlDto url : urls) {
             Url shortenedUrl = null;
