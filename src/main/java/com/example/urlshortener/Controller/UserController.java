@@ -20,6 +20,8 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
+import java.util.Map;
 
 @RestController
 public class UserController {
@@ -35,7 +37,7 @@ public class UserController {
             User res = userService.createUser(user);
             return new ResponseEntity<>(res, HttpStatus.OK);
 
-        } catch (ConflictException e){
+        } catch (ConflictException e) {
             return new ResponseEntity<>(e.getMessage(), HttpStatus.CONFLICT);
         }
     }
@@ -45,14 +47,14 @@ public class UserController {
         try {
             userService.deleteUser(userId);
             return ResponseEntity.ok("User successfully deleted");
-        } catch (NotFoundException e){
+        } catch (NotFoundException e) {
             return new ResponseEntity<>(e.getMessage(), HttpStatus.NOT_FOUND);
         }
     }
 
     @PutMapping("subscribe")
     public ResponseEntity<?> updateSubscription(@RequestBody SubscriptionDto dto) {
-        try{
+        try {
             User user = userService.updateSubscription(dto.getUserId(), dto.getTier());
             return new ResponseEntity<>(user, HttpStatus.OK);
         } catch (NotFoundException e) {
@@ -66,7 +68,8 @@ public class UserController {
     public ResponseEntity<?> loginUser(@RequestBody User user, HttpServletRequest request,
             HttpServletResponse response) {
         String userId = userService.userLoggedIn(request.getCookies());
-        if(userId!="") return new ResponseEntity<>("User " + userId + " already logged in", HttpStatus.OK);
+        if (userId != "")
+            return new ResponseEntity<>("User " + userId + " already logged in", HttpStatus.OK);
 
         User storedUser = userService.getUserByEmail(user.getEmail());
         if (storedUser != null && storedUser.getPassword()
@@ -77,7 +80,11 @@ public class UserController {
             authCookie.setHttpOnly(true);
             authCookie.setPath("/");
             response.addCookie(authCookie);
-            return new ResponseEntity<>("Login successful", HttpStatus.OK);
+            Map<String, Object> responseData = new HashMap<>();
+            responseData.put("message", "Login successful");
+            responseData.put("email", storedUser.getEmail()); // Using email as a username
+            responseData.put("tier", storedUser.getTier()); // Retrieved from User class
+            return new ResponseEntity<>(responseData, HttpStatus.OK);
         }
         UrlErrorResponse error = new UrlErrorResponse("401", "Invalid email or password");
         return new ResponseEntity<>(error, HttpStatus.UNAUTHORIZED);
