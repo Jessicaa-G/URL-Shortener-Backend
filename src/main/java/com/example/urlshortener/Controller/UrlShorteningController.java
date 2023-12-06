@@ -162,4 +162,30 @@ public class UrlShorteningController {
 
         return new ResponseEntity<List<String>>(originalUrls, HttpStatus.OK);
     }
+
+    @DeleteMapping("bulk/url")
+    public ResponseEntity<?> deleteBulkUrls(@RequestBody List<String> shortUrls, HttpServletRequest request) {
+        try {
+            String userId = userService.userLoggedIn(request.getCookies());
+            if (userId == "") {
+                throw new BadRequestException("Access error, you need to login first");
+            }
+
+            for (String shortUrl : shortUrls) {
+                try {
+                    urlService.deleteUrlById(shortUrl, userId);
+                } catch(NotFoundException e) {
+
+                }
+            }
+
+            List<String> updatedUrls = userService.getUserById(userId).getUrls();
+
+            return new ResponseEntity<>(updatedUrls, HttpStatus.OK);
+        } catch (NotFoundException e) {
+            return new ResponseEntity<>(e.getMessage(), HttpStatus.NOT_FOUND);
+        } catch (BadRequestException e) {
+            return new ResponseEntity<>(e.getMessage(), HttpStatus.BAD_REQUEST);
+        }
+    }
 }

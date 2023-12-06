@@ -43,20 +43,23 @@ public class UserService {
     public UserService() { }
 
     public User createUser(User user) {
-        if(getUserByEmail(user.getEmail())!=null) throw new ConflictException("This email has been used already.");
+        try{
+            getUserByEmail(user.getEmail());
+            throw new ConflictException("This email has been used already.");
+        }catch (NotFoundException e){
+            String rowkey = new User().getId().toString();
+            RowMutation rowMutation = RowMutation.create(tableId, rowkey)
+                    .deleteCells(COLUMN_FAMILY_USER, "email")
+                    .setCell(COLUMN_FAMILY_USER, "email", user.getEmail())
+                    .deleteCells(COLUMN_FAMILY_USER, "password")
+                    .setCell(COLUMN_FAMILY_USER, "password",
+                            Hashing.sha256().hashString(user.getPassword(), StandardCharsets.UTF_8).toString())
+                    .deleteCells(COLUMN_FAMILY_USER, "tier")
+                    .setCell(COLUMN_FAMILY_USER, "tier", Tier.BRONZE.name());
 
-        String rowkey = new User().getId().toString();
-        RowMutation rowMutation = RowMutation.create(tableId, rowkey)
-                .deleteCells(COLUMN_FAMILY_USER, "email")
-                .setCell(COLUMN_FAMILY_USER, "email", user.getEmail())
-                .deleteCells(COLUMN_FAMILY_USER, "password")
-                .setCell(COLUMN_FAMILY_USER, "password",
-                        Hashing.sha256().hashString(user.getPassword(), StandardCharsets.UTF_8).toString())
-                .deleteCells(COLUMN_FAMILY_USER, "tier")
-                .setCell(COLUMN_FAMILY_USER, "tier", Tier.BRONZE.name());
-
-        dataClient.mutateRow(rowMutation);
-        return getUserById(rowkey);
+            dataClient.mutateRow(rowMutation);
+            return getUserById(rowkey);
+        }
     }
 
     public User getUserById(String id) {
@@ -151,7 +154,7 @@ public class UserService {
 
     public void deleteUrlInUser(String shorturl, String userId){
         User user = getUserById(userId);
-        if(!user.getUrls().contains(shorturl)){
+        if(user.getUrls()==null || !user.getUrls().contains(shorturl)){
             return;
         }
 

@@ -73,23 +73,27 @@ public class UserController {
         if (userId != "")
             return new ResponseEntity<>("User " + userId + " already logged in", HttpStatus.OK);
 
-        User storedUser = userService.getUserByEmail(user.getEmail());
-        if (storedUser != null && storedUser.getPassword()
-                .equals(Hashing.sha256().hashString(user.getPassword(), StandardCharsets.UTF_8).toString())) {
-            user.setId(storedUser.getId());
-            String token = jwtService.generateToken(user);
-            Cookie authCookie = new Cookie("auth_token", token);
-            authCookie.setHttpOnly(true);
-            authCookie.setPath("/");
-            response.addCookie(authCookie);
-            Map<String, Object> responseData = new HashMap<>();
-            responseData.put("message", "Login successful");
-            responseData.put("email", storedUser.getEmail()); // Using email as a username
-            responseData.put("tier", storedUser.getTier()); // Retrieved from User class
-            return new ResponseEntity<>(responseData, HttpStatus.OK);
+        try {
+            User storedUser = userService.getUserByEmail(user.getEmail());
+
+            if (storedUser.getPassword().equals(Hashing.sha256().hashString(user.getPassword(), StandardCharsets.UTF_8).toString())) {
+                user.setId(storedUser.getId());
+                String token = jwtService.generateToken(user);
+                Cookie authCookie = new Cookie("auth_token", token);
+                authCookie.setHttpOnly(true);
+                authCookie.setPath("/");
+                response.addCookie(authCookie);
+                Map<String, Object> responseData = new HashMap<>();
+                responseData.put("message", "Login successful");
+                responseData.put("email", storedUser.getEmail()); // Using email as a username
+                responseData.put("tier", storedUser.getTier()); // Retrieved from User class
+                return new ResponseEntity<>(responseData, HttpStatus.OK);
+            }
+            UrlErrorResponse error = new UrlErrorResponse("401", "Invalid email or password");
+            return new ResponseEntity<>(error, HttpStatus.UNAUTHORIZED);
+        } catch(NotFoundException e){
+            return new ResponseEntity<>(e.getMessage(), HttpStatus.NOT_FOUND);
         }
-        UrlErrorResponse error = new UrlErrorResponse("401", "Invalid email or password");
-        return new ResponseEntity<>(error, HttpStatus.UNAUTHORIZED);
     }
 
     @PutMapping("logout")
