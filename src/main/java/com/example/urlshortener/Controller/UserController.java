@@ -99,4 +99,18 @@ public class UserController {
         response.addCookie(authCookie);
         return new ResponseEntity<>("Logged out successfully", HttpStatus.OK);
     }
+
+    @GetMapping("user")
+    public ResponseEntity<?> getUserInfo(HttpServletRequest request) {
+        String userId = userService.userLoggedIn(request.getCookies());
+        if (userId == "") return new ResponseEntity<>("Error, token not valid (user not logged in)", HttpStatus.BAD_REQUEST);
+
+        User storedUser = userService.getUserById(userId);
+        if(storedUser == null) return new ResponseEntity<>("Error, user not found", HttpStatus.NOT_FOUND);
+
+        Map<String, Object> responseData = new HashMap<>();
+        responseData.put("email", storedUser.getEmail()); // Using email as a username
+        responseData.put("tier", storedUser.getTier()); // Retrieved from User class
+        return new ResponseEntity<>(responseData, HttpStatus.OK);
+    }
 }
