@@ -53,9 +53,11 @@ public class UserController {
     }
 
     @PutMapping("subscribe")
-    public ResponseEntity<?> updateSubscription(@RequestBody SubscriptionDto dto) {
+    public ResponseEntity<?> updateSubscription(@RequestBody SubscriptionDto dto, HttpServletRequest request) {
         try {
-            User user = userService.updateSubscription(dto.getUserId(), dto.getTier());
+            String userId = userService.userLoggedIn(request.getCookies());
+            if (userId == "") return new ResponseEntity<>("Error, token not valid (user not logged in)", HttpStatus.BAD_REQUEST);
+            User user = userService.updateSubscription(userId, dto.getTier());
             return new ResponseEntity<>(user, HttpStatus.OK);
         } catch (NotFoundException e) {
             return new ResponseEntity<>(e.getMessage(), HttpStatus.NOT_FOUND);

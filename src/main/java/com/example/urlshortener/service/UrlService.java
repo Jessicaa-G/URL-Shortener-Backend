@@ -165,12 +165,13 @@ public class UrlService {
 
 
     public void deleteUrlById(String shortUrl, String userId) {
-        Url url = getUrlById(shortUrl);
-        if(url==null) throw new NotFoundException("Not Found, Url " + shortUrl + " does not exist.");
-        RowMutation rowMutation = RowMutation.create(urlTableId, shortUrl).deleteRow();
-        dataClient.mutateRow(rowMutation);
-
-        userService.deleteUrlInUser(shortUrl, userId);
+        try {
+            getUrlById(shortUrl);
+            RowMutation rowMutation = RowMutation.create(urlTableId, shortUrl).deleteRow();
+            dataClient.mutateRow(rowMutation);
+        } finally {
+            userService.deleteUrlInUser(shortUrl, userId);
+        }
     }
 
     private String shortenUrl(String url) {
@@ -257,7 +258,11 @@ public class UrlService {
         if(shortUrls==null) return urls;
 
         for(String url: shortUrls){
-            if(getUrlById(url)!=null) urls.add(getUrlById(url));
+            try{
+                urls.add(getUrlById(url));
+            }catch (NotFoundException e){
+                deleteUrlById(url, userId);
+            }
         }
         return urls;
     }

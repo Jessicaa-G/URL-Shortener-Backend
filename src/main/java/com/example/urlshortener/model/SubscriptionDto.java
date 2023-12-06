@@ -10,16 +10,11 @@ public class SubscriptionDto {
 
     @Getter
     @Setter
-    private String userId;
-
-    @Getter
-    @Setter
     private String tier;
 
     public SubscriptionDto() {}
 
-    public SubscriptionDto(String userId, String tier) {
-        this.userId = userId;
+    public SubscriptionDto(String tier) {
         this.tier = tier;
     }
 }
