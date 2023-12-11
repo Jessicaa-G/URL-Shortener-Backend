@@ -19,7 +19,6 @@ import java.util.List;
 import java.util.Map;
 
 @RestController
-@RequestMapping("api/")
 public class UrlShorteningController {
     @Autowired
     private UrlService urlService;
@@ -27,7 +26,7 @@ public class UrlShorteningController {
     @Autowired
     UserService userService;
 
-    @PostMapping("shortenurl")
+    @PostMapping("api/shortenurl")
     public ResponseEntity<?> generateShortUrl(@RequestBody UrlDto urlDto, HttpServletRequest request) {
         Url shortenedUrl = null;
         String userId = userService.userLoggedIn(request.getCookies());
@@ -51,7 +50,7 @@ public class UrlShorteningController {
         return new ResponseEntity<UrlErrorResponse>(error, HttpStatus.OK);
     }
 
-    @DeleteMapping("shortenurl")
+    @DeleteMapping("api/shortenurl")
     public ResponseEntity<?> deleteUrl(@RequestParam String url, HttpServletRequest request) {
         String userId = userService.userLoggedIn(request.getCookies());
         try {
@@ -85,7 +84,7 @@ public class UrlShorteningController {
         }
     }
 
-    @GetMapping("stats/{urlParam}")
+    @GetMapping("api/stats/{urlParam}")
     public ResponseEntity<?> getStats(@PathVariable String urlParam) {
         try {
             Map<String, Long> clicks = urlService.getStats(urlParam);
@@ -97,7 +96,7 @@ public class UrlShorteningController {
         }
     }
 
-    @GetMapping("shortenurls")
+    @GetMapping("api/shortenurls")
     public ResponseEntity<?> getUrlsByUser(HttpServletRequest request) {
         try {
             String userId = userService.userLoggedIn(request.getCookies());
@@ -113,7 +112,7 @@ public class UrlShorteningController {
         }
     }
 
-    @PostMapping("bulk/shortenurl")
+    @PostMapping("api/bulk/shortenurl")
     public ResponseEntity<?> generateBulkShortUrls(@RequestBody List<UrlDto> urls, HttpServletRequest request) {
         String userId = userService.userLoggedIn(request.getCookies());
 
@@ -146,7 +145,7 @@ public class UrlShorteningController {
         return new ResponseEntity<List<UrlResponse>>(urlResponses, HttpStatus.OK);
     }
 
-    @PostMapping("bulk/resolveurl")
+    @PostMapping("api/bulk/resolveurl")
     public ResponseEntity<?> resolveBulkUrls(@RequestBody List<String> shortUrls) {
         List<String> originalUrls = new ArrayList<>();
 
@@ -164,7 +163,7 @@ public class UrlShorteningController {
         return new ResponseEntity<List<String>>(originalUrls, HttpStatus.OK);
     }
 
-    @DeleteMapping("bulk/url")
+    @DeleteMapping("api/bulk/url")
     public ResponseEntity<?> deleteBulkUrls(@RequestBody List<String> shortUrls, HttpServletRequest request) {
         try {
             String userId = userService.userLoggedIn(request.getCookies());
